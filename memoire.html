@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Les Paires de Jenny</title>
+<style>
+/* ============================================================
+   TOKENS — univers "crépuscule romantique" :
+   ciel corail / pêche / mauve, pétales et lucioles dorées.
+   ============================================================ */
+:root{
+  --sky-top:#ffb199;
+  --sky-mid:#ffd6a5;
+  --sky-bottom:#d99fb0;
+  --cream:#fff3e6;
+  --paper:#fffaf3;
+  --white:#fffefb;
+  --coral:#ff8a65;
+  --coral-deep:#df5a34;
+  --rose:#e8a0b4;
+  --rose-deep:#cf7d95;
+  --lavender:#b79fdb;
+  --lavender-deep:#8f72bd;
+  --gold-light:#ffdca8;
+  --ink:#5c3a3f;
+  --ink-soft:#8a6470;
+  --shadow-soft: 0 10px 26px rgba(120,50,50,0.18);
+  --shadow-deep: 0 24px 55px rgba(90,40,50,0.32);
+  --font-display: "Iowan Old Style","Palatino Linotype","Book Antiqua", Georgia, serif;
+  --font-script: "Segoe Script","Snell Roundhand","Brush Script MT", cursive;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{
+  width:100%; height:100%;
+  overflow:hidden;
+  font-family: var(--font-body);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+body{
+  position:relative;
+  background: radial-gradient(ellipse at 50% -10%, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+}
+
+/* ============================================================
+   CANVAS DE FOND — pétales qui tombent + lucioles + parallaxe
+   ============================================================ */
+#bg-canvas{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+#fx-canvas{ position:fixed; inset:0; width:100%; height:100%; z-index:60; pointer-events:none; }
+.warm-glow{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background: radial-gradient(circle at 50% 40%, rgba(255,220,168,0.18) 0%, rgba(255,220,168,0) 50%);
+}
+
+/* ============================================================
+   LAYOUT GENERAL
+   ============================================================ */
+#stage{
+  position:relative; z-index:5;
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  padding: 18px;
+}
+.screen{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:18px;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transform: scale(0.94);
+  transition: opacity .8s cubic-bezier(.22,.61,.36,1), transform 1s cubic-bezier(.22,.61,.36,1), visibility 0s linear .8s;
+  padding: 16px;
+}
+.screen.active{
+  opacity:1; visibility:visible; pointer-events:auto;
+  transform: scale(1);
+  transition: opacity .8s cubic-bezier(.22,.61,.36,1), transform 1s cubic-bezier(.22,.61,.36,1), visibility 0s linear 0s;
+}
+.screen.zoom-out{ transform: scale(1.3); opacity:0; }
+
+.eyebrow{
+  font-family: var(--font-script);
+  font-size: clamp(18px, 3.2vw, 26px);
+  color: var(--coral-deep);
+  text-shadow: 0 0 16px rgba(255,255,255,0.4);
+}
+.title-display{
+  font-family: var(--font-display);
+  font-weight:500;
+  font-size: clamp(26px, 4.6vw, 40px);
+  color: var(--ink);
+  text-align:center;
+}
+
+/* ============================================================
+   BARRE DE STATS
+   ============================================================ */
+.stats-bar{
+  display:flex; gap: 28px;
+  background: rgba(255,250,243,0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 999px;
+  padding: 10px 26px;
+  box-shadow: var(--shadow-soft);
+}
+.stat{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+}
+.stat-label{
+  font-size: 11px; letter-spacing:0.08em; text-transform:uppercase;
+  color: var(--ink-soft);
+}
+.stat-value{
+  font-family: var(--font-display);
+  font-size: 18px; font-weight:600;
+  color: var(--coral-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   GRILLE DE CARTES
+   ============================================================ */
+.grid{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, 1.8vw, 16px);
+  width: min(94vw, 460px);
+}
+.card{
+  position:relative;
+  aspect-ratio: 1 / 1;
+  perspective: 900px;
+  cursor:pointer;
+}
+.card-inner{
+  position:relative; width:100%; height:100%;
+  transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.34,1.1,.4,1);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+}
+.card.flipped .card-inner, .card.matched .card-inner{
+  transform: rotateY(180deg);
+}
+.card-face{
+  position:absolute; inset:0;
+  backface-visibility: hidden;
+  border-radius: 14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size: clamp(22px, 5.6vw, 34px);
+}
+.card-back{
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.5), transparent 45%),
+    linear-gradient(150deg, var(--rose), var(--coral));
+  color: rgba(255,255,255,0.85);
+}
+.card-back::after{
+  content:"🌸";
+  filter: drop-shadow(0 2px 4px rgba(80,20,20,0.25));
+}
+.card-front{
+  background: linear-gradient(160deg, var(--paper), var(--white));
+  transform: rotateY(180deg);
+  border: 1px solid rgba(223,90,52,0.18);
+}
+.card.matched .card-front{
+  background: linear-gradient(160deg, #fff0e0, var(--gold-light));
+  box-shadow: 0 0 0 2px var(--coral) inset, 0 0 18px rgba(255,138,101,0.5);
+}
+.card.shake .card-inner{
+  animation: card-shake .45s ease;
+}
+@keyframes card-shake{
+  0%,100%{ transform: rotateY(0deg) translateX(0); }
+  20%{ transform: rotateY(0deg) translateX(-5px); }
+  40%{ transform: rotateY(0deg) translateX(5px); }
+  60%{ transform: rotateY(0deg) translateX(-4px); }
+  80%{ transform: rotateY(0deg) translateX(4px); }
+}
+
+/* ============================================================
+   BOUTONS
+   ============================================================ */
+.btn-primary{
+  font-family: var(--font-body);
+  font-size: clamp(14px, 2.4vw, 17px);
+  font-weight:600;
+  color: var(--white);
+  background: linear-gradient(180deg, var(--coral), var(--coral-deep));
+  border:none;
+  padding: 14px 32px;
+  border-radius: 999px;
+  cursor:pointer;
+  box-shadow: 0 8px 22px rgba(223,90,52,0.4), inset 0 1px 0 rgba(255,255,255,0.35);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.btn-primary:hover{ transform: translateY(-2px); filter:brightness(1.04); }
+.btn-primary:active{ transform: translateY(1px) scale(0.97); }
+
+.btn-ghost{
+  font-family: var(--font-body);
+  font-size: 13px; font-weight:600;
+  color: var(--ink-soft);
+  background: rgba(255,250,243,0.6);
+  border: 1px solid rgba(223,90,52,0.25);
+  padding: 9px 20px;
+  border-radius: 999px;
+  cursor:pointer;
+  transition: background .2s ease, color .2s ease;
+}
+.btn-ghost:hover{ background: rgba(255,250,243,0.9); color: var(--coral-deep); }
+
+/* ============================================================
+   ÉCRAN DE VICTOIRE
+   ============================================================ */
+#screen-win .title-display{
+  max-width: 620px;
+  font-size: clamp(22px, 4vw, 32px);
+  line-height: 1.5;
+  min-height: 4em;
+}
+.typewriter-cursor{
+  display:inline-block; width:2px; height:1em; background: var(--coral-deep);
+  margin-left:2px; vertical-align:-0.15em;
+  animation: blink 0.9s steps(1) infinite;
+}
+@keyframes blink{ 50%{ opacity:0; } }
+
+.win-stats{
+  display:flex; gap:22px;
+  opacity:0; transform: translateY(10px);
+  transition: opacity .8s ease, transform .8s ease;
+}
+.win-stats.show{ opacity:1; transform: translateY(0); }
+
+.finale-text{
+  font-family: var(--font-script);
+  font-size: clamp(20px, 3.4vw, 28px);
+  color: var(--lavender-deep);
+  text-align:center;
+  opacity:0; transform: translateY(10px);
+  transition: opacity 1.1s ease, transform 1.1s ease;
+}
+.finale-text.show{ opacity:1; transform: translateY(0); }
+
+.btn-final{
+  font-family: var(--font-script);
+  font-size: clamp(19px, 3vw, 25px);
+  color: var(--white);
+  background: linear-gradient(180deg, var(--lavender), var(--lavender-deep));
+  border:none;
+  padding: 15px 38px;
+  border-radius: 999px;
+  cursor:pointer;
+  box-shadow: 0 10px 24px rgba(143,114,189,0.45), inset 0 1px 0 rgba(255,255,255,0.35);
+  opacity:0; transform: translateY(14px);
+  transition: opacity 1s ease, transform 1s ease, filter .2s ease;
+}
+.btn-final.show{ opacity:1; transform: translateY(0); }
+.btn-final:hover{ filter:brightness(1.06); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 420px){
+  .stats-bar{ gap:18px; padding:9px 18px; }
+  .grid{ gap:7px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="warm-glow"></div>
+<canvas id="fx-canvas"></canvas>
+
+<div id="stage">
+
+  <!-- ============== ÉCRAN JEU ============== -->
+  <section id="screen-game" class="screen active">
+    <span class="eyebrow">Retrouve chaque paire</span>
+    <h2 class="title-display">Les Paires de Jenny</h2>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-label">Coups</span>
+        <span class="stat-value" id="stat-moves">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Temps</span>
+        <span class="stat-value" id="stat-time">0:00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Paires</span>
+        <span class="stat-value" id="stat-pairs">0/8</span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <button class="btn-ghost" id="btn-restart">↺ Recommencer</button>
+  </section>
+
+  <!-- ============== ÉCRAN VICTOIRE / FIN SECRÈTE ============== -->
+  <section id="screen-win" class="screen">
+    <h2 class="title-display" id="finale-line-1"><span class="typewriter-cursor"></span></h2>
+    <div class="win-stats" id="win-stats">
+      <div class="stat">
+        <span class="stat-label">Coups</span>
+        <span class="stat-value" id="win-moves">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Temps</span>
+        <span class="stat-value" id="win-time">0:00</span>
+      </div>
+    </div>
+    <p class="finale-text" id="finale-line-2">Et si on écrivait la suite... ensemble ? ❤️</p>
+    <button class="btn-final" id="btn-continue">✨ Continuer notre histoire</button>
+  </section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. UTILITAIRES
+   ============================================================ */
+const $ = (sel) => document.querySelector(sel);
+const rand = (min, max) => Math.random() * (max - min) + min;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+let audioCtx = null;
+function ensureAudioCtx(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  return audioCtx;
+}
+function playTone(freq, duration, type, gainPeak){
+  const ctx = ensureAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(gainPeak || 0.07, ctx.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+function playFlipSound(){ playTone(520, 0.08, "sine", 0.05); }
+function playMatchSound(){
+  [660, 880, 1100].forEach((f,i)=> setTimeout(()=>playTone(f, 0.4, "sine", 0.05), i*80));
+}
+function playMissSound(){ playTone(180, 0.16, "triangle", 0.05); }
+function playWinSound(){
+  [523, 659, 784, 1046].forEach((f,i)=> setTimeout(()=>playTone(f, 0.5, "sine", 0.05), i*110));
+}
+function vibrate(pattern){
+  if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+}
+
+/* ============================================================
+   1. FOND ANIMÉ — pétales qui tombent + lucioles + parallaxe
+   ============================================================ */
+const bgCanvas = $("#bg-canvas");
+const bgCtx = bgCanvas.getContext("2d");
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resizeCanvas(canvas, ctx){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+resizeCanvas(bgCanvas, bgCtx);
+
+let petals = [];
+let fireflies = [];
+
+function makePetal(){
+  return {
+    x: rand(0, W), y: rand(-40, H*0.6),
+    size: rand(6, 13),
+    speed: rand(10, 26),
+    drift: rand(-14, 14),
+    sway: rand(0, Math.PI*2),
+    swaySpeed: rand(0.4, 1.1),
+    rot: rand(0, Math.PI*2),
+    vrot: rand(-0.4, 0.4),
+    hue: pick(["#ff8a65", "#e8a0b4", "#ffd6a5"]),
+    opacity: rand(0.5, 0.85)
+  };
+}
+function makeFirefly(){
+  return {
+    x: rand(0, W), y: rand(0, H),
+    r: rand(1.2, 2.6),
+    phase: rand(0, Math.PI*2),
+    speed: rand(0.4, 1.1),
+    vx: rand(-6, 6), vy: rand(-4, 4),
+    depth: rand(0.3, 1)
+  };
+}
+function initBackground(){
+  petals = [];
+  const petalCount = Math.floor(W / 60) + 6;
+  for(let i=0;i<petalCount;i++) petals.push(makePetal());
+
+  fireflies = [];
+  const fireflyCount = Math.floor((W*H)/32000) + 10;
+  for(let i=0;i<fireflyCount;i++) fireflies.push(makeFirefly());
+}
+
+let mouseX = 0.5, mouseY = 0.5;
+window.addEventListener("mousemove", (e)=>{ mouseX = e.clientX/W; mouseY = e.clientY/H; });
+window.addEventListener("touchmove", (e)=>{
+  if(e.touches && e.touches[0]){ mouseX = e.touches[0].clientX/W; mouseY = e.touches[0].clientY/H; }
+}, {passive:true});
+
+function drawPetal(ctx, p){
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rot);
+  ctx.globalAlpha = p.opacity;
+  ctx.fillStyle = p.hue;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, p.size*0.55, p.size, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+let lastT = performance.now();
+function animateBackground(t){
+  const dt = Math.min((t - lastT)/1000, 0.05);
+  lastT = t;
+  bgCtx.clearRect(0,0,W,H);
+
+  const parX = (mouseX - 0.5) * 12;
+  const parY = (mouseY - 0.5) * 8;
+
+  for(const p of petals){
+    p.y += p.speed * dt;
+    p.sway += dt * p.swaySpeed;
+    p.x += Math.sin(p.sway) * p.drift * dt;
+    p.rot += p.vrot * dt;
+    drawPetal(bgCtx, { ...p, x: p.x + parX*0.4, y: p.y + parY*0.4 });
+    if(p.y > H + 20){ Object.assign(p, makePetal()); p.y = -20; }
+  }
+
+  for(const f of fireflies){
+    f.phase += dt * f.speed;
+    f.x += f.vx * dt; f.y += f.vy * dt;
+    if(f.x < -10) f.x = W+10; if(f.x > W+10) f.x = -10;
+    if(f.y < -10) f.y = H+10; if(f.y > H+10) f.y = -10;
+    const a = 0.35 + 0.5 * Math.max(0, Math.sin(f.phase));
+    bgCtx.save();
+    bgCtx.globalAlpha = a;
+    bgCtx.fillStyle = "#ffdca8";
+    bgCtx.shadowColor = "#ffdca8";
+    bgCtx.shadowBlur = 8;
+    bgCtx.beginPath();
+    bgCtx.arc(f.x + parX*f.depth, f.y + parY*f.depth, f.r, 0, Math.PI*2);
+    bgCtx.fill();
+    bgCtx.restore();
+  }
+
+  requestAnimationFrame(animateBackground);
+}
+
+window.addEventListener("resize", ()=>{
+  resizeCanvas(bgCanvas, bgCtx);
+  resizeCanvas(fxCanvas, fxCtx);
+  initBackground();
+});
+
+/* ============================================================
+   2. CANVAS D'EFFETS — confettis / étincelles
+   ============================================================ */
+const fxCanvas = $("#fx-canvas");
+const fxCtx = fxCanvas.getContext("2d");
+resizeCanvas(fxCanvas, fxCtx);
+
+let fxParticles = [];
+const CONFETTI_COLORS = ["#ff8a65","#e8a0b4","#ffd6a5","#b79fdb","#fffaf3"];
+
+function burstConfetti(x, y, count){
+  count = count || 55;
+  for(let i=0;i<count;i++){
+    const angle = rand(0, Math.PI*2);
+    const speed = rand(2, 7);
+    fxParticles.push({
+      type:"confetti", x, y,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed - rand(1,3),
+      size: rand(4,9), rot: rand(0,Math.PI*2), vrot: rand(-0.2,0.2),
+      color: pick(CONFETTI_COLORS), life:1, decay: rand(0.006,0.012), gravity:0.12
+    });
+  }
+}
+function burstSparkles(x, y, count){
+  count = count || 16;
+  for(let i=0;i<count;i++){
+    const angle = rand(0, Math.PI*2);
+    const speed = rand(1, 3.5);
+    fxParticles.push({
+      type:"spark", x, y,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      size: rand(1.5,3.2), life:1, decay: rand(0.02,0.04), color:"#ffdca8"
+    });
+  }
+}
+
+function animateFx(){
+  fxCtx.clearRect(0,0,W,H);
+  fxParticles = fxParticles.filter(p=>{
+    if(p.type === "confetti"){
+      p.vy += p.gravity; p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life -= p.decay;
+      if(p.life <= 0) return false;
+      fxCtx.save(); fxCtx.globalAlpha = Math.max(p.life,0);
+      fxCtx.translate(p.x,p.y); fxCtx.rotate(p.rot);
+      fxCtx.fillStyle = p.color;
+      fxCtx.fillRect(-p.size/2, -p.size/3, p.size, p.size*0.6);
+      fxCtx.restore();
+      return true;
+    }
+    if(p.type === "spark"){
+      p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+      if(p.life <= 0) return false;
+      fxCtx.save(); fxCtx.globalAlpha = Math.max(p.life,0);
+      fxCtx.fillStyle = p.color; fxCtx.shadowColor = p.color; fxCtx.shadowBlur = 8;
+      fxCtx.beginPath(); fxCtx.arc(p.x,p.y,p.size,0,Math.PI*2); fxCtx.fill();
+      fxCtx.restore();
+      return true;
+    }
+    return false;
+  });
+  requestAnimationFrame(animateFx);
+}
+
+/* ============================================================
+   3. JEU DE MÉMOIRE
+   ============================================================ */
+const ICONS = ["❤️","😂","☕","🎵","🤫","✉️","💍","🦋"];
+const grid = $("#grid");
+const statMoves = $("#stat-moves");
+const statTime = $("#stat-time");
+const statPairs = $("#stat-pairs");
+const btnRestart = $("#btn-restart");
+const screenGame = $("#screen-game");
+const screenWin = $("#screen-win");
+
+let cards = [];
+let firstCard = null;
+let secondCard = null;
+let lock = false;
+let moves = 0;
+let matchesFound = 0;
+let timerSeconds = 0;
+let timerInterval = null;
+let timerStarted = false;
+
+function shuffle(arr){
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(rand(0, i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildGrid(){
+  grid.innerHTML = "";
+  const deck = shuffle([...ICONS, ...ICONS]);
+  cards = deck.map((icon, index)=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.icon = icon;
+    card.dataset.index = index;
+    card.innerHTML =
+      '<div class="card-inner">' +
+        '<div class="card-face card-back"></div>' +
+        '<div class="card-face card-front">' + icon + '</div>' +
+      '</div>';
+    card.addEventListener("click", ()=> onCardClick(card));
+    grid.appendChild(card);
+    return card;
+  });
+}
+
+function onCardClick(card){
+  if(lock) return;
+  if(card.classList.contains("flipped") || card.classList.contains("matched")) return;
+  if(card === firstCard) return;
+
+  if(!timerStarted){
+    timerStarted = true;
+    startTimer();
+  }
+
+  ensureAudioCtx();
+  playFlipSound();
+  vibrate(8);
+  card.classList.add("flipped");
+
+  if(!firstCard){
+    firstCard = card;
+    return;
+  }
+
+  secondCard = card;
+  moves++;
+  statMoves.textContent = moves;
+  lock = true;
+
+  const isMatch = firstCard.dataset.icon === secondCard.dataset.icon;
+  if(isMatch){
+    handleMatch();
+  } else {
+    handleMismatch();
+  }
+}
+
+function handleMatch(){
+  playMatchSound();
+  vibrate([10,20,10]);
+  firstCard.classList.add("matched");
+  secondCard.classList.add("matched");
+  const rect = secondCard.getBoundingClientRect();
+  burstSparkles(rect.left + rect.width/2, rect.top + rect.height/2, 14);
+  matchesFound++;
+  statPairs.textContent = matchesFound + "/" + ICONS.length;
+  resetSelection();
+  if(matchesFound === ICONS.length){
+    setTimeout(triggerWin, 500);
+  }
+}
+
+function handleMismatch(){
+  playMissSound();
+  vibrate(15);
+  firstCard.classList.add("shake");
+  secondCard.classList.add("shake");
+  setTimeout(()=>{
+    firstCard.classList.remove("flipped", "shake");
+    secondCard.classList.remove("flipped", "shake");
+    resetSelection();
+  }, 850);
+}
+
+function resetSelection(){
+  firstCard = null;
+  secondCard = null;
+  lock = false;
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  timerSeconds = 0;
+  updateTimeDisplay();
+  timerInterval = setInterval(()=>{
+    timerSeconds++;
+    updateTimeDisplay();
+  }, 1000);
+}
+function updateTimeDisplay(){
+  const m = Math.floor(timerSeconds/60);
+  const s = (timerSeconds%60).toString().padStart(2,"0");
+  statTime.textContent = m + ":" + s;
+}
+
+function resetGame(){
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerStarted = false;
+  timerSeconds = 0;
+  moves = 0;
+  matchesFound = 0;
+  firstCard = null; secondCard = null; lock = false;
+  statMoves.textContent = "0";
+  statTime.textContent = "0:00";
+  statPairs.textContent = "0/" + ICONS.length;
+  buildGrid();
+}
+
+btnRestart.addEventListener("click", ()=>{
+  ensureAudioCtx();
+  playFlipSound();
+  resetGame();
+});
+
+/* ============================================================
+   4. VICTOIRE / FIN SECRÈTE
+   ============================================================ */
+const finaleLine1 = $("#finale-line-1");
+const finaleLine2 = $("#finale-line-2");
+const winStats = $("#win-stats");
+const winMoves = $("#win-moves");
+const winTime = $("#win-time");
+const btnContinue = $("#btn-continue");
+
+const FINALE_TEXT = "Chaque paire trouvée... comme chaque moment qu'on partage. Ma belle Jenny, avec toi, tout s'accorde parfaitement.";
+
+function triggerWin(){
+  clearInterval(timerInterval);
+  playWinSound();
+  vibrate([15,40,15]);
+
+  winMoves.textContent = moves;
+  winTime.textContent = statTime.textContent;
+
+  screenGame.classList.add("zoom-out");
+  setTimeout(()=>{
+    screenGame.classList.remove("active");
+    screenWin.classList.add("active");
+
+    const rect = { left: W/2, top: H*0.35 };
+    burstConfetti(rect.left, rect.top, 90);
+
+    typewriterInto(finaleLine1, FINALE_TEXT, 30, ()=>{
+      winStats.classList.add("show");
+      setTimeout(()=> finaleLine2.classList.add("show"), 300);
+      setTimeout(()=> btnContinue.classList.add("show"), 900);
+    });
+  }, 900);
+}
+
+function typewriterInto(el, text, speedMs, onDone){
+  el.innerHTML = '<span class="typewriter-cursor"></span>';
+  let i = 0;
+  function step(){
+    if(i <= text.length){
+      el.innerHTML = text.slice(0, i) + '<span class="typewriter-cursor"></span>';
+      i++;
+      setTimeout(step, speedMs);
+    } else if(onDone){
+      onDone();
+    }
+  }
+  step();
+}
+
+btnContinue.addEventListener("click", ()=>{
+  ensureAudioCtx();
+  playWinSound();
+  vibrate([15,40,15]);
+  const rect = btnContinue.getBoundingClientRect();
+  burstConfetti(rect.left + rect.width/2, rect.top, 90);
+  for(let i=0;i<10;i++){
+    setTimeout(()=> burstSparkles(rand(0,W), rand(0,H), 8), i*90);
+  }
+  screenWin.style.transition = "transform 1.4s cubic-bezier(.22,.61,.36,1)";
+  screenWin.style.transform = "scale(1.5)";
+  setTimeout(()=>{
+    finaleLine1.innerHTML = "À toi de choisir le prochain chapitre.";
+    finaleLine2.classList.remove("show");
+    winStats.classList.remove("show");
+    btnContinue.style.display = "none";
+  }, 900);
+});
+
+/* ============================================================
+   5. DÉMARRAGE
+   ============================================================ */
+initBackground();
+requestAnimationFrame(animateBackground);
+requestAnimationFrame(animateFx);
+resetGame();
+
+})();
+</script>
+</body>
+</html>
