@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>La Voyance de Jenny</title>
+<style>
+/* ============================================================
+   TOKENS — même famille "nuit dorée", teintée de violet mystique
+   pour l'ambiance voyance.
+   ============================================================ */
+:root{
+  --night-1:#221a30;
+  --night-2:#33244a;
+  --night-3:#4a3268;
+  --violet:#8f6fd6;
+  --violet-deep:#6a4bb0;
+  --rose:#f3c6cf;
+  --gold:#cfa25f;
+  --gold-light:#eeda9f;
+  --gold-deep:#9c7233;
+  --paper:#fdf7ec;
+  --cream:#f8efe2;
+  --white:#fffaf3;
+  --ink:#4a3548;
+  --ink-soft:#7a6178;
+  --shadow-deep: 0 25px 60px rgba(15,8,25,0.55);
+  --font-display: "Iowan Old Style","Palatino Linotype","Book Antiqua", Georgia, serif;
+  --font-script: "Segoe Script","Snell Roundhand","Brush Script MT", cursive;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{
+  width:100%; height:100%; overflow:hidden;
+  font-family: var(--font-body);
+  color: var(--paper);
+  -webkit-tap-highlight-color: transparent;
+}
+body{
+  position:relative;
+  background: radial-gradient(ellipse at 50% -10%, var(--night-3) 0%, var(--night-2) 45%, var(--night-1) 100%);
+}
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+}
+
+#bg-canvas{ position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+#fx-canvas{ position:fixed; inset:0; width:100%; height:100%; z-index:60; pointer-events:none; }
+.warm-glow{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background: radial-gradient(circle at 50% 45%, rgba(143,111,214,0.16) 0%, rgba(143,111,214,0) 50%);
+}
+
+#stage{
+  position:relative; z-index:5;
+  width:100%; height:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap: clamp(18px, 4vh, 34px);
+  padding: 20px;
+}
+
+.eyebrow{
+  font-family: var(--font-script);
+  font-size: clamp(18px, 3.2vw, 26px);
+  color: var(--gold-light);
+  text-shadow: 0 0 16px rgba(238,218,159,0.3);
+}
+.title-display{
+  font-family: var(--font-display);
+  font-weight:500;
+  font-size: clamp(26px, 4.6vw, 40px);
+  text-align:center;
+}
+
+/* ============================================================
+   BOULE DE CRISTAL
+   ============================================================ */
+.orb-wrap{
+  position:relative;
+  width: min(58vw, 260px);
+  aspect-ratio:1/1;
+  display:flex; align-items:center; justify-content:center;
+  animation: orb-float 4.5s ease-in-out infinite;
+}
+@keyframes orb-float{
+  0%,100%{ transform: translateY(0); }
+  50%{ transform: translateY(-10px); }
+}
+.orb-stand{
+  position:absolute;
+  bottom:-6%;
+  width:60%; height:14%;
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  border-radius: 50% / 40%;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.3);
+  z-index:1;
+}
+.orb{
+  position:relative;
+  width:100%; height:100%;
+  border-radius:50%;
+  z-index:2;
+  overflow:hidden;
+  box-shadow:
+    inset -14px -14px 40px rgba(0,0,0,0.35),
+    inset 14px 10px 30px rgba(255,255,255,0.18),
+    0 0 40px rgba(143,111,214,0.35),
+    0 20px 40px rgba(0,0,0,0.4);
+  background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.12), transparent 55%),
+              radial-gradient(circle at 50% 50%, #3a2a55, #1c1428 85%);
+}
+.orb-smoke{
+  position:absolute; inset:-20%;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 30% 40%, rgba(200,170,255,0.35), transparent 45%),
+    radial-gradient(circle at 65% 60%, rgba(240,200,255,0.25), transparent 50%),
+    radial-gradient(circle at 50% 30%, rgba(180,140,240,0.3), transparent 50%);
+  filter: blur(6px);
+  animation: smoke-swirl 9s ease-in-out infinite;
+  opacity:0.85;
+}
+@keyframes smoke-swirl{
+  0%{ transform: rotate(0deg) scale(1); }
+  50%{ transform: rotate(180deg) scale(1.15); }
+  100%{ transform: rotate(360deg) scale(1); }
+}
+.orb-smoke.active{
+  animation: smoke-swirl-fast 1.6s ease-in-out infinite;
+}
+@keyframes smoke-swirl-fast{
+  0%{ transform: rotate(0deg) scale(1); filter: blur(6px); }
+  50%{ transform: rotate(200deg) scale(1.3); filter: blur(3px); }
+  100%{ transform: rotate(400deg) scale(1); filter: blur(6px); }
+}
+.orb-highlight{
+  position:absolute; top:12%; left:22%;
+  width:26%; height:16%;
+  background: radial-gradient(circle, rgba(255,255,255,0.55), transparent 70%);
+  border-radius:50%;
+  z-index:3;
+  pointer-events:none;
+}
+.orb-pulse{
+  position:absolute; inset:0; border-radius:50%;
+  box-shadow: 0 0 0 0 rgba(143,111,214,0.5);
+  z-index:2; pointer-events:none;
+}
+.orb-pulse.active{
+  animation: pulse-ring 1.4s ease-out infinite;
+}
+@keyframes pulse-ring{
+  0%{ box-shadow: 0 0 0 0 rgba(143,111,214,0.5); }
+  100%{ box-shadow: 0 0 0 34px rgba(143,111,214,0); }
+}
+
+.btn-primary{
+  position:relative;
+  font-family: var(--font-body);
+  font-size: clamp(14px, 2.4vw, 17px);
+  font-weight:600;
+  color: var(--night-1);
+  background: linear-gradient(180deg, var(--gold-light), var(--gold));
+  border:none;
+  padding: 16px 34px;
+  border-radius: 999px;
+  cursor:pointer;
+  box-shadow: 0 8px 22px rgba(159,116,45,0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.btn-primary:hover:not(:disabled){ transform: translateY(-2px); filter:brightness(1.03); }
+.btn-primary:active:not(:disabled){ transform: translateY(1px) scale(0.97); }
+.btn-primary:disabled{ opacity:0.55; cursor:default; }
+
+/* ============================================================
+   CARTE PRÉDICTION
+   ============================================================ */
+.prediction-card{
+  width: min(90vw, 440px);
+  background: linear-gradient(160deg, var(--paper), var(--cream));
+  border-radius: 20px;
+  padding: 26px 24px;
+  box-shadow: var(--shadow-deep), 0 0 0 1px rgba(238,218,159,0.35);
+  color: var(--ink);
+  text-align:center;
+  opacity:0;
+  transform: translateY(16px) scale(0.96);
+  transition: opacity .6s cubic-bezier(.2,.9,.3,1.15), transform .6s cubic-bezier(.2,.9,.3,1.15);
+  pointer-events:none;
+}
+.prediction-card.show{
+  opacity:1;
+  transform: translateY(0) scale(1);
+  pointer-events:auto;
+}
+.prediction-icon{
+  font-size: 26px;
+  display:block;
+  margin-bottom: 10px;
+}
+.prediction-text{
+  font-family: var(--font-display);
+  font-size: clamp(16px, 3vw, 19px);
+  line-height:1.6;
+}
+
+.draw-counter{
+  font-size: 12px;
+  color: rgba(255,250,243,0.6);
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 420px){
+  .prediction-card{ padding: 22px 18px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="warm-glow"></div>
+<canvas id="fx-canvas"></canvas>
+
+<div id="stage">
+  <span class="eyebrow">Que nous réserve la suite ?</span>
+  <h2 class="title-display">La Voyance de Jenny</h2>
+
+  <div class="orb-wrap" id="orb-wrap">
+    <div class="orb-pulse" id="orb-pulse"></div>
+    <div class="orb">
+      <div class="orb-smoke" id="orb-smoke"></div>
+      <div class="orb-highlight"></div>
+    </div>
+    <div class="orb-stand"></div>
+  </div>
+
+  <button class="btn-primary" id="btn-read">🔮 Lire notre avenir</button>
+
+  <div class="prediction-card" id="prediction-card">
+    <span class="prediction-icon">✨</span>
+    <p class="prediction-text" id="prediction-text"></p>
+  </div>
+
+  <span class="draw-counter" id="draw-counter"></span>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. UTILITAIRES
+   ============================================================ */
+const $ = (sel) => document.querySelector(sel);
+const rand = (min, max) => Math.random() * (max - min) + min;
+
+let audioCtx = null;
+function ensureAudioCtx(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  return audioCtx;
+}
+function playTone(freq, duration, type, gainPeak){
+  const ctx = ensureAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(gainPeak || 0.06, ctx.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+function playChimeSound(){
+  [660, 880, 1100].forEach((f,i)=> setTimeout(()=>playTone(f, 0.45, "sine", 0.05), i*90));
+}
+function playMysticSound(){
+  playTone(220, 0.6, "sine", 0.04);
+  setTimeout(()=>playTone(330, 0.6, "sine", 0.03), 150);
+}
+function vibrate(pattern){
+  if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+}
+
+/* ============================================================
+   1. FOND ANIMÉ — étoiles + particules mystiques + parallaxe
+   ============================================================ */
+const bgCanvas = $("#bg-canvas");
+const bgCtx = bgCanvas.getContext("2d");
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resizeCanvas(canvas, ctx){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+resizeCanvas(bgCanvas, bgCtx);
+
+let stars = [];
+function initBackground(){
+  stars = [];
+  const starCount = Math.floor((W*H)/9000);
+  for(let i=0;i<starCount;i++){
+    stars.push({ x: rand(0,W), y: rand(0,H*0.9), r: rand(0.5,1.8), baseA: rand(0.25,0.9), speed: rand(0.6,2.0), phase: rand(0,Math.PI*2), depth: rand(0.2,1) });
+  }
+}
+let mouseX=0.5, mouseY=0.5;
+window.addEventListener("mousemove",(e)=>{ mouseX=e.clientX/W; mouseY=e.clientY/H; });
+window.addEventListener("touchmove",(e)=>{ if(e.touches && e.touches[0]){ mouseX=e.touches[0].clientX/W; mouseY=e.touches[0].clientY/H; } },{passive:true});
+
+let lastT = performance.now();
+function animateBackground(t){
+  const dt = Math.min((t-lastT)/1000, 0.05);
+  lastT = t;
+  bgCtx.clearRect(0,0,W,H);
+  const parX=(mouseX-0.5)*12, parY=(mouseY-0.5)*9;
+  for(const s of stars){
+    s.phase += dt*s.speed;
+    const a = s.baseA * (0.55 + 0.45*Math.sin(s.phase));
+    bgCtx.beginPath();
+    bgCtx.fillStyle = "rgba(230,210,255,"+a.toFixed(3)+")";
+    bgCtx.arc(s.x+parX*s.depth, s.y+parY*s.depth, s.r, 0, Math.PI*2);
+    bgCtx.fill();
+  }
+  requestAnimationFrame(animateBackground);
+}
+window.addEventListener("resize", ()=>{ resizeCanvas(bgCanvas,bgCtx); resizeCanvas(fxCanvas,fxCtx); initBackground(); });
+
+/* ============================================================
+   2. CANVAS D'EFFETS — étincelles mystiques autour de la boule
+   ============================================================ */
+const fxCanvas = $("#fx-canvas");
+const fxCtx = fxCanvas.getContext("2d");
+resizeCanvas(fxCanvas, fxCtx);
+let fxParticles = [];
+
+function burstSparkles(x, y, count, colorList){
+  count = count || 20;
+  const colors = colorList || ["#eeda9f","#c8aaff","#f3c6cf"];
+  for(let i=0;i<count;i++){
+    const angle = rand(0, Math.PI*2);
+    const speed = rand(1, 4);
+    fxParticles.push({
+      type:"spark", x, y,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      size: rand(1.5,3.4), life:1, decay: rand(0.012,0.025),
+      color: colors[Math.floor(rand(0,colors.length))]
+    });
+  }
+}
+function ringSparkles(cx, cy, radius, count){
+  count = count || 24;
+  for(let i=0;i<count;i++){
+    const angle = (i / count) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    fxParticles.push({
+      type:"spark", x, y,
+      vx: Math.cos(angle)*0.6, vy: Math.sin(angle)*0.6 - 0.3,
+      size: rand(1.5,3), life:1, decay: rand(0.012,0.02),
+      color: "#c8aaff"
+    });
+  }
+}
+
+function animateFx(){
+  fxCtx.clearRect(0,0,W,H);
+  fxParticles = fxParticles.filter(p=>{
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    if(p.life <= 0) return false;
+    fxCtx.save();
+    fxCtx.globalAlpha = Math.max(p.life,0);
+    fxCtx.fillStyle = p.color;
+    fxCtx.shadowColor = p.color;
+    fxCtx.shadowBlur = 9;
+    fxCtx.beginPath();
+    fxCtx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    fxCtx.fill();
+    fxCtx.restore();
+    return true;
+  });
+  requestAnimationFrame(animateFx);
+}
+
+/* ============================================================
+   3. PRÉDICTIONS — pioche façon "paquet de cartes"
+   (aucune ne revient tant que toutes ne sont pas sorties)
+   ============================================================ */
+const PREDICTIONS = [
+  "Le baby boom va durer... pour la VIE.",
+  "Je vois un nouveau resto de lasagnes dans votre futur proche. Très proche.",
+  "Les astres sont formels : un jour, elle va enfin accepter de goûter au matcha. Ce jour n'est pas pour bientôt.",
+  "Une deuxième visite à la Tour Eiffel se profile... cette fois, il pleuvra des cœurs.",
+  "Ton téléphone va vibrer dans les prochaines minutes. Ce sera lui.",
+  "Les lignes de la boule disent : encore beaucoup de fous rires en soirée à venir.",
+  "Un jour, 'mon cœur' deviendra un nom encore plus officiel. Patience.",
+  "La brume me montre... un road trip que vous n'avez pas encore prévu, mais que vous allez adorer.",
+  "Attention : une déclaration random va arriver, un jour de semaine tout à fait banal.",
+  "Le futur est clair : elle va continuer à le regarder, et lui, il va continuer à sourire bêtement.",
+  "Je vois un cadeau surprise, pas pour un anniversaire, juste parce que oui.",
+  "Une nuit blanche à parler de tout et de rien se profile à l'horizon."
+];
+
+let deck = [];
+let drawCount = 0;
+
+function reshuffleDeck(){
+  deck = [...PREDICTIONS];
+  for(let i = deck.length - 1; i > 0; i--){
+    const j = Math.floor(rand(0, i+1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+}
+function drawPrediction(){
+  if(deck.length === 0) reshuffleDeck();
+  return deck.pop();
+}
+reshuffleDeck();
+
+/* ============================================================
+   4. INTERACTION — la boule s'anime puis révèle la prédiction
+   ============================================================ */
+const btnRead = $("#btn-read");
+const orbSmoke = $("#orb-smoke");
+const orbPulse = $("#orb-pulse");
+const orbWrap = $("#orb-wrap");
+const predictionCard = $("#prediction-card");
+const predictionText = $("#prediction-text");
+const drawCounter = $("#draw-counter");
+
+let reading = false;
+
+btnRead.addEventListener("click", ()=>{
+  if(reading) return;
+  reading = true;
+  btnRead.disabled = true;
+  ensureAudioCtx();
+  playMysticSound();
+  vibrate(15);
+
+  predictionCard.classList.remove("show");
+  orbSmoke.classList.add("active");
+  orbPulse.classList.add("active");
+
+  const rect = orbWrap.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const radius = rect.width/2;
+
+  let ringTicks = 0;
+  const ringInterval = setInterval(()=>{
+    ringSparkles(cx, cy, radius * rand(0.85,1.05), 10);
+    ringTicks++;
+    if(ringTicks >= 5) clearInterval(ringInterval);
+  }, 380);
+
+  setTimeout(()=>{
+    orbSmoke.classList.remove("active");
+    orbPulse.classList.remove("active");
+
+    const text = drawPrediction();
+    drawCount++;
+    predictionText.textContent = text;
+    predictionCard.classList.add("show");
+    burstSparkles(cx, cy - radius, 26);
+    playChimeSound();
+    vibrate([10,20,10]);
+    drawCounter.textContent = "Tirage n°" + drawCount;
+
+    btnRead.disabled = false;
+    reading = false;
+  }, 1900);
+});
+
+/* ============================================================
+   5. DÉMARRAGE
+   ============================================================ */
+initBackground();
+requestAnimationFrame(animateBackground);
+requestAnimationFrame(animateFx);
+
+})();
+</script>
+</body>
+</html>
